@@ -8,7 +8,7 @@ project_root = os.path.dirname(os.path.abspath(__file__))
 src_dir = os.path.join(project_root, "src", "main", "java")
 resources_dir = os.path.join(project_root, "src", "main", "resources")
 build_dir = os.path.join(project_root, "build_output")
-dest_jar = os.path.join(project_root, "mcchatbridge-1.0.0.jar")
+dest_jar = os.path.join(project_root, "mcchatbridge-1.0.2.jar")
 
 # 1. Clean build directory
 if os.path.exists(build_dir):
@@ -64,6 +64,12 @@ shutil.copyfile(
     os.path.join(meta_inf_dst, "neoforge.mods.toml")
 )
 print("Metadata file copied.")
+
+# Copy logo
+logo_src = os.path.join(resources_dir, "logo.png")
+if os.path.exists(logo_src):
+    shutil.copyfile(logo_src, os.path.join(build_dir, "logo.png"))
+    print("Logo copied.")
 
 # 4. Create JAR file
 print(f"Creating JAR file: {dest_jar}")

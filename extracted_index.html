@@ -1,0 +1,3116 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Minecraft Chat Bridge</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        :root {
+            --mc-dark-bg: rgba(16, 0, 16, 0.92);
+            --mc-purple-border: #2e0066;
+            --mc-purple-shadow: #1f0033;
+            --mc-gray-btn: #5c5c5c;
+            --mc-btn-hover: #7a7a7a;
+            --mc-btn-active: #3c3c3c;
+            --mc-border-light: #aeaeae;
+            --mc-border-dark: #2e2e2e;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Press Start 2P', monospace;
+            image-rendering: pixelated;
+        }
+        html, body {
+            height: 100%;
+            height: 100dvh;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            background-color: #141414;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #ffffff;
+            overflow: hidden;
+        }
+        
+        .panorama-bg {
+            position: fixed;
+            top: -20px;
+            left: -20px;
+            width: calc(100vw + 40px);
+            height: calc(100vh + 40px);
+            background-image: url('/minecraft-panorama.jpg');
+            background-size: auto 110%;
+            background-position: 0 center;
+            background-repeat: repeat-x;
+            filter: blur(12px) brightness(0.55);
+            z-index: -1;
+            animation: panorama-scroll 180s linear infinite;
+        }
+        @keyframes panorama-scroll {
+            from {
+                background-position: 0 center;
+            }
+            to {
+                background-position: -2048px center;
+            }
+        }
+        
+        .chat-container {
+            width: 100%;
+            max-width: 550px;
+            height: calc(100% - 32px);
+            max-height: 750px;
+            background: var(--mc-dark-bg);
+            border: 4px solid var(--mc-purple-border);
+            box-shadow: 0 0 0 4px var(--mc-purple-shadow), 0 20px 40px rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .tabs-bar {
+            display: flex;
+            background: rgba(0, 0, 0, 0.4);
+            border-bottom: 4px solid #5c5c5c;
+            padding: 8px 8px 0 8px;
+            gap: 4px;
+            overflow-x: auto;
+            flex-shrink: 0;
+            z-index: 12;
+        }
+        .tabs-bar::-webkit-scrollbar {
+            height: 4px;
+        }
+        .tabs-bar::-webkit-scrollbar-thumb {
+            background: #5c5c5c;
+        }
+        .tab {
+            background: #3c3c3c;
+            border-top: 3px solid var(--mc-border-light);
+            border-left: 3px solid var(--mc-border-light);
+            border-right: 3px solid var(--mc-border-dark);
+            border-bottom: 3px solid #5c5c5c;
+            padding: 6px 12px;
+            font-size: 9px;
+            color: #aaaaaa;
+            cursor: pointer;
+            position: relative;
+            top: 3px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .tab.active {
+            background: var(--mc-dark-bg);
+            border-bottom: 3px solid transparent;
+            color: #ffff55;
+            top: 0;
+            padding-bottom: 9px;
+            z-index: 2;
+        }
+        .tab.unread {
+            color: #ff5555;
+            border-top-color: #ff5555;
+            border-left-color: #ff5555;
+        }
+        .tab-close {
+            color: #ff5555;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 11px;
+        }
+        .tab-close:hover {
+            color: #ffaa00;
+        }
+        
+        .header {
+            flex-shrink: 0;
+            padding: 16px 20px;
+            border-bottom: 4px solid #5c5c5c;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(0,0,0,0.4);
+            z-index: 11;
+        }
+        .server-title-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+        .server-icon {
+            width: 32px;
+            height: 32px;
+            border: 2px solid var(--mc-border-light);
+            background-color: #000;
+            object-fit: cover;
+            cursor: pointer;
+            transition: transform 0.1s ease;
+        }
+        .server-icon:hover {
+            border-color: #ffff55;
+            transform: scale(1.1);
+        }
+        .header h1 {
+            font-size: 11px;
+            font-weight: normal;
+            text-shadow: 2px 2px 0px #000;
+            color: #ffff55;
+            line-height: 1.4;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        .status {
+            display: flex;
+            align-items: center;
+            font-size: 10px;
+            color: #aaaaaa;
+            background: #000000;
+            border: 2px solid #5c5c5c;
+            padding: 4px 8px;
+            text-shadow: 2px 2px 0px #000;
+        }
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            background: #55ff55;
+            margin-right: 6px;
+            box-shadow: 0 0 4px #55ff55;
+        }
+        .status.connecting .status-dot {
+            background: #ffaa00;
+            box-shadow: 0 0 4px #ffaa00;
+        }
+        .setup-pane {
+            flex-shrink: 0;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 2px solid #5c5c5c;
+            background: rgba(0,0,0,0.2);
+            z-index: 5;
+        }
+        .my-avatar-wrapper {
+            position: relative;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .my-avatar {
+            width: 36px;
+            height: 36px;
+            border: 2px solid var(--mc-border-light);
+            object-fit: cover;
+            image-rendering: pixelated;
+            background-color: #333;
+            transition: border-color 0.15s;
+        }
+        .my-avatar-wrapper:hover .my-avatar {
+            border-color: #ffff55;
+        }
+        .my-avatar-badge {
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            background: #5555ff;
+            color: #fff;
+            font-size: 8px;
+            width: 14px;
+            height: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #000;
+        }
+        .input-field {
+            background: #000000;
+            border: 2px solid #5c5c5c;
+            color: #ffffff;
+            padding: 10px 14px;
+            font-size: 12px;
+            outline: none;
+            text-shadow: 2px 2px 0px #222;
+            border-radius: 0;
+        }
+        .input-field:focus {
+            border-color: #ffffff;
+        }
+        .nick-input {
+            flex: 1;
+            max-width: 200px;
+        }
+        .messages-area {
+            flex: 1;
+            flex-shrink: 1;
+            min-height: 0;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background: rgba(0, 0, 0, 0.35);
+        }
+        .messages-area::-webkit-scrollbar {
+            width: 8px;
+        }
+        .messages-area::-webkit-scrollbar-thumb {
+            background: #5c5c5c;
+            border: 2px solid #000;
+        }
+        .msg-row {
+            font-size: 12px;
+            line-height: 1.6;
+            word-break: break-word;
+            text-shadow: 2px 2px 0px #1e1e1e;
+            padding: 6px 10px;
+            background: rgba(255, 255, 255, 0.02);
+            border-left: 3px solid #5555ff;
+        }
+        .msg-row.self-msg {
+            border-left-color: #ffaa00;
+            background: rgba(255, 170, 0, 0.02);
+        }
+        .msg-row.system-msg {
+            border-left-color: #ff5555;
+            background: rgba(255, 85, 85, 0.04);
+            font-style: italic;
+        }
+        .sender-name {
+            text-decoration: none;
+        }
+        .chat-image {
+            max-width: 100%;
+            max-height: 200px;
+            border: 2px solid #5c5c5c;
+            margin-top: 6px;
+            display: block;
+            cursor: zoom-in;
+        }
+        .chat-image:hover {
+            border-color: #ffffff;
+        }
+        .msg-time {
+            color: #777777;
+            margin-right: 8px;
+            font-size: 10px;
+        }
+        .input-pane {
+            flex-shrink: 0;
+            padding: 16px 20px;
+            display: flex;
+            gap: 8px;
+            border-top: 4px solid #5c5c5c;
+            background: rgba(0,0,0,0.4);
+            z-index: 5;
+            position: relative;
+        }
+        .message-input {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .emoji-picker {
+            position: absolute;
+            bottom: 75px;
+            left: 20px;
+            background: var(--mc-dark-bg);
+            border: 3px solid var(--mc-purple-border);
+            box-shadow: 0 0 0 3px var(--mc-purple-shadow);
+            padding: 8px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            z-index: 100;
+        }
+        .emoji-picker span {
+            font-size: 18px;
+            cursor: pointer;
+            text-align: center;
+            user-select: none;
+        }
+        .emoji-picker span:hover {
+            transform: scale(1.25);
+        }
+        
+        .btn {
+            background: var(--mc-gray-btn);
+            border-top: 2px solid var(--mc-border-light);
+            border-left: 2px solid var(--mc-border-light);
+            border-right: 2px solid var(--mc-border-dark);
+            border-bottom: 2px solid var(--mc-border-dark);
+            color: #e0e0e0;
+            padding: 10px 16px;
+            font-size: 12px;
+            cursor: pointer;
+            outline: none;
+            text-shadow: 2px 2px 0px #000;
+            border-radius: 0;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .btn:hover {
+            background: var(--mc-btn-hover);
+            color: #ffffa0;
+            border-top: 2px solid #ffffff;
+            border-left: 2px solid #ffffff;
+            border-right: 2px solid #3c3c3c;
+            border-bottom: 2px solid #3c3c3c;
+        }
+        .btn:active {
+            background: var(--mc-btn-active);
+            border-top: 2px solid var(--mc-border-dark);
+            border-left: 2px solid var(--mc-border-dark);
+            border-right: 2px solid var(--mc-border-light);
+            border-bottom: 2px solid var(--mc-border-light);
+            color: #aaaaaa;
+        }
+        
+        .sidebar {
+            position: absolute;
+            top: 68px;
+            right: -260px;
+            width: 260px;
+            height: calc(100% - 68px);
+            background: var(--mc-dark-bg);
+            border-left: 4px solid var(--mc-purple-border);
+            box-shadow: -4px 0px 0px var(--mc-purple-shadow);
+            transition: right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            gap: 16px;
+        }
+        .sidebar.open {
+            right: 0;
+        }
+        
+        .left-sidebar {
+            left: -260px;
+            right: auto;
+            border-left: none;
+            border-right: 4px solid var(--mc-purple-border);
+            box-shadow: 4px 0px 0px var(--mc-purple-shadow);
+            transition: left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .left-sidebar.open {
+            left: 0;
+        }
+        
+        .sidebar-header {
+            font-size: 13px;
+            color: #ffff55;
+            text-shadow: 2px 2px 0px #000;
+            border-bottom: 2px solid #5c5c5c;
+            padding-bottom: 10px;
+            font-weight: normal;
+        }
+        .player-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .player-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        .player-list::-webkit-scrollbar-thumb {
+            background: #5c5c5c;
+            border: 1px solid #000;
+        }
+        .player-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 10px;
+            background: rgba(0,0,0,0.3);
+            border: 2px solid #5c5c5c;
+        }
+        .player-row.clickable {
+            cursor: pointer;
+        }
+        .player-row.clickable:hover {
+            border-color: #ffffff;
+            background: rgba(255,255,255,0.05);
+        }
+        .player-avatar {
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--mc-border-light);
+            object-fit: cover;
+            image-rendering: pixelated;
+            background-color: #555;
+        }
+        .player-name {
+            font-size: 11px;
+            text-shadow: 2px 2px 0px #000;
+            color: #ffffff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        @media (max-width: 532px) {
+            .chat-container {
+                margin: 0;
+                height: 100%;
+                max-height: 100%;
+                border: none;
+                box-shadow: none;
+            }
+            .sidebar {
+                width: 100%;
+                right: -100%;
+                border-left: none;
+                box-shadow: none;
+            }
+            .sidebar.open {
+                right: 0;
+            }
+            .left-sidebar {
+                width: 100%;
+                left: -100%;
+                border-right: none;
+                box-shadow: none;
+            }
+            .left-sidebar.open {
+                left: 0;
+            }
+        }
+        
+        /* Clicker styles */
+        .clicker-modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--mc-dark-bg);
+            z-index: 30;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            gap: 16px;
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: translateY(100%);
+        }
+        .clicker-modal.open {
+            transform: translateY(0);
+        }
+        .clicker-layout {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            flex: 1;
+            overflow-y: auto;
+        }
+        .clicker-layout::-webkit-scrollbar {
+            width: 6px;
+        }
+        .clicker-layout::-webkit-scrollbar-thumb {
+            background: #5c5c5c;
+            border: 1px solid #000;
+        }
+        .clicker-section {
+            background: rgba(0,0,0,0.3);
+            border: 2px solid #5c5c5c;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            position: relative;
+        }
+        .clicker-block-container {
+            width: 100px;
+            height: 100px;
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.05s ease;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+        .clicker-block-container:active {
+            transform: scale(0.92);
+        }
+        .clicker-block-img {
+            width: 100%;
+            height: 100%;
+            image-rendering: pixelated;
+        }
+        .clicker-progress-container {
+            width: 100%;
+            background: #555;
+            border: 2px solid #000;
+            height: 16px;
+            position: relative;
+        }
+        .clicker-progress-bar {
+            height: 100%;
+            background: #55ff55;
+            width: 0%;
+            transition: width 0.1s ease;
+        }
+        .clicker-progress-text {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            color: #fff;
+            text-shadow: 1px 1px 0px #000;
+        }
+        .clicker-inv-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 8px;
+            width: 100%;
+        }
+        .clicker-inv-slot {
+            aspect-ratio: 1;
+            background: #8b8b8b;
+            border-top: 2px solid #fff;
+            border-left: 2px solid #fff;
+            border-right: 2px solid #373737;
+            border-bottom: 2px solid #373737;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            cursor: pointer;
+            padding: 4px;
+        }
+        .clicker-inv-slot:hover {
+            background: #9c9c9c;
+            border-color: #fff #fff #373737 #373737;
+        }
+        .clicker-inv-slot.selected {
+            border-color: #ffff55 !important;
+            outline: 2px solid #ffff55;
+        }
+        .clicker-slot-icon {
+            width: 32px;
+            height: 32px;
+            image-rendering: pixelated;
+            object-fit: contain;
+        }
+        .clicker-slot-count {
+            position: absolute;
+            bottom: 2px;
+            right: 4px;
+            font-size: 8px;
+            color: #fff;
+            text-shadow: 1px 1px 0px #000;
+        }
+        .floating-hit {
+            position: absolute;
+            color: #ff5555;
+            font-size: 10px;
+            font-weight: bold;
+            pointer-events: none;
+            text-shadow: 1px 1px 0px #000;
+            animation: floatUp 0.6s ease-out forwards;
+            z-index: 10;
+        }
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-40px) scale(0.8); opacity: 0; }
+        }
+        .transfer-panel {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background: rgba(0,0,0,0.5);
+            padding: 12px;
+            border: 2px solid #5c5c5c;
+        }
+        .transfer-panel h3 {
+            font-size: 9px;
+            color: #ffff55;
+            margin-bottom: 4px;
+            font-weight: normal;
+        }
+        .select-field {
+            background: #000;
+            border: 2px solid #5c5c5c;
+            color: #fff;
+            padding: 8px;
+            font-size: 9px;
+            outline: none;
+            width: 100%;
+            cursor: pointer;
+            border-radius: 0;
+        }
+        
+        .clicker-tabs {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 8px;
+            border-bottom: 2px solid #5c5c5c;
+            padding-bottom: 8px;
+        }
+        .clicker-tab {
+            opacity: 0.6;
+        }
+        .clicker-tab.active {
+            opacity: 1;
+            border-color: #ffff55;
+            color: #ffff55;
+        }
+        .furnace-ui {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            width: 100%;
+            padding: 12px;
+            background: rgba(0,0,0,0.4);
+            border: 2px solid #5c5c5c;
+        }
+        
+        @media (max-width: 532px) {
+            .clicker-modal {
+                width: 100%;
+                height: 100%;
+            }
+        }
+
+        .auth-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.82);
+            backdrop-filter: blur(4px);
+        }
+        .auth-card {
+            background: var(--mc-dark-bg);
+            border: 4px solid var(--mc-purple-border);
+            box-shadow: 0 0 0 4px #100016, 0 8px 40px rgba(0,0,0,0.7);
+            padding: 22px 20px;
+            width: 320px;
+            max-width: 92vw;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .auth-card h2 {
+            text-align: center;
+            font-size: 14px;
+            margin: 0;
+            color: #fff;
+        }
+        .auth-tabs {
+            display: flex;
+            gap: 6px;
+        }
+        .auth-tab {
+            flex: 1;
+            padding: 8px;
+            font-size: 10px;
+            cursor: pointer;
+            background: var(--mc-gray-btn);
+            color: #cfcfcf;
+            border-top: 2px solid var(--mc-border-light);
+            border-left: 2px solid var(--mc-border-light);
+            border-right: 2px solid var(--mc-border-dark);
+            border-bottom: 2px solid var(--mc-border-dark);
+            font-family: inherit;
+        }
+        .auth-tab.active {
+            background: var(--mc-purple-border);
+            color: #fff;
+        }
+        .auth-card .input-field {
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .auth-error {
+            color: #ff6b6b;
+            font-size: 9px;
+            min-height: 11px;
+            text-align: center;
+            line-height: 1.4;
+        }
+        .auth-hint {
+            color: #888;
+            font-size: 8px;
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        /* PC-only controls are hidden on narrow (mobile) screens */
+        @media (max-width: 532px) {
+            .pc-only { display: none !important; }
+        }
+
+        #scroll-bottom-btn {
+            position: absolute;
+            bottom: 88px;
+            right: 22px;
+            width: 40px;
+            height: 40px;
+            border-radius: 0;
+            background: var(--mc-gray-btn);
+            color: #e0e0e0;
+            border-top: 2px solid var(--mc-border-light);
+            border-left: 2px solid var(--mc-border-light);
+            border-right: 2px solid var(--mc-border-dark);
+            border-bottom: 2px solid var(--mc-border-dark);
+            font-family: inherit;
+            font-size: 12px;
+            text-shadow: 2px 2px 0px #000;
+            image-rendering: pixelated;
+            cursor: pointer;
+            outline: none;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            line-height: 1;
+        }
+        #scroll-bottom-btn.visible {
+            opacity: 0.5;
+            pointer-events: auto;
+        }
+        #scroll-bottom-btn.visible:hover {
+            opacity: 0.95;
+            background: var(--mc-btn-hover);
+            color: #ffffa0;
+            border-top: 2px solid #ffffff;
+            border-left: 2px solid #ffffff;
+            border-right: 2px solid #3c3c3c;
+            border-bottom: 2px solid #3c3c3c;
+        }
+        #scroll-bottom-btn.visible:active {
+            background: var(--mc-btn-active);
+            border-top: 2px solid var(--mc-border-dark);
+            border-left: 2px solid var(--mc-border-dark);
+            border-right: 2px solid var(--mc-border-light);
+            border-bottom: 2px solid var(--mc-border-light);
+            color: #aaaaaa;
+        }
+        #scroll-bottom-btn.blink {
+            animation: scroll-btn-blink 0.7s ease-in-out infinite;
+        }
+        @keyframes scroll-btn-blink {
+            0%, 100% {
+                opacity: 0.5;
+                background: var(--mc-gray-btn);
+                color: #fff;
+                box-shadow: none;
+            }
+            50% {
+                opacity: 1;
+                background: #ffd23f;
+                color: #000;
+                box-shadow: 0 0 14px 3px rgba(255, 210, 63, 0.85);
+            }
+        }
+    </style>
+   <script>
+       function disconnectOld(oldNick) {
+           if (!oldNick) return;
+           fetch('/leave?nick=' + encodeURIComponent(oldNick), { method: 'POST', keepalive: true });
+       }
+       window.addEventListener('beforeunload', () => {
+           const nick = document.getElementById('nick-input').value.trim();
+           disconnectOld(nick);
+       });
+   </script>
+    <script src="/clicker/textures.js"></script>
+</head>
+<body>
+    <div class="auth-overlay" id="auth-overlay" style="display:none;">
+        <div class="auth-card">
+            <h2 id="auth-title">Log in</h2>
+            <div class="auth-tabs">
+                <button type="button" class="auth-tab active" id="auth-tab-login">Log in</button>
+                <button type="button" class="auth-tab" id="auth-tab-register">Register</button>
+            </div>
+            <form id="auth-form" autocomplete="on">
+                <input type="text" id="auth-nick" class="input-field" placeholder="Nickname" maxlength="16" autocomplete="username">
+                <input type="password" id="auth-password" class="input-field" placeholder="Password" maxlength="100" autocomplete="current-password">
+                <input type="password" id="auth-password2" class="input-field" placeholder="Confirm password" maxlength="100" autocomplete="new-password" style="display:none;">
+                <div class="auth-error" id="auth-error"></div>
+                <button type="submit" class="btn" id="auth-submit" style="width:100%;">Log in</button>
+            </form>
+            <div class="auth-hint" id="auth-hint"></div>
+        </div>
+    </div>
+    <div class="panorama-bg"></div>
+    <div class="chat-container">
+        <div class="header">
+            <div class="server-title-container">
+                <img src="/server-icon.png" class="server-icon" id="srv-icon" alt="[Icon]">
+                <h1 id="server-name">A Minecraft Server</h1>
+            </div>
+            <div class="header-actions">
+                <button class="btn" id="toggle-sidebar-btn" style="padding: 4px 10px; font-size: 10px;">Players (0)</button>
+                <div class="status" id="status-panel">
+                    <span class="status-dot"></span>
+                    <span id="status-text">...</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Creative Tabs Bar -->
+        <div class="tabs-bar" id="tabs-bar">
+            <div class="tab active" data-target="global" id="tab-global">Chat</div>
+        </div>
+        
+        <div class="setup-pane">
+            <input type="file" id="avatar-input" style="display:none;" accept="image/png,image/jpeg,image/gif">
+            <div class="my-avatar-wrapper" id="avatar-wrapper" title="Click to change avatar">
+                <img class="my-avatar" id="my-avatar" src="data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%23888888%22><path d=%22M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z%22/></svg>" alt="">
+                <span class="my-avatar-badge">✎</span>
+            </div>
+            <input type="text" class="input-field nick-input" id="nick-input" placeholder="Nickname" maxlength="16">
+            <button class="btn" id="open-clicker-btn" style="padding: 10px 14px; font-size: 14px;" title="Clicker Mini-game">⛏️</button>
+            <select id="lang-select" style="padding: 10px 8px; font-size: 10px; cursor: pointer; border-radius: 0; outline: none; margin-left: 4px; background: var(--mc-gray-btn); color: white; border-top: 2px solid var(--mc-border-light); border-left: 2px solid var(--mc-border-light); border-right: 2px solid var(--mc-border-dark); border-bottom: 2px solid var(--mc-border-dark); font-family: inherit;">
+                <option value="en">EN</option>
+                <option value="ru">RU</option>
+            </select>
+            <input type="file" id="panorama-input" style="display:none;" accept="image/png,image/jpeg,image/gif,image/webp">
+            <button class="btn pc-only" id="panorama-btn" style="padding: 10px 12px; font-size: 14px; margin-left: 4px;" title="Change background">🖼️</button>
+        </div>
+        <div class="messages-area" id="messages-area">
+        </div>
+        <button type="button" id="scroll-bottom-btn" title="Scroll to latest">▼</button>
+        <form class="input-pane" id="chat-form">
+            <input type="file" id="file-input" style="display:none;" accept="image/*,image/gif">
+            <button type="button" class="btn" id="attach-btn" style="padding: 10px 14px; font-size: 12px;" title="Attach image">📎</button>
+            <button type="button" class="btn" id="emoji-btn" style="padding: 10px 14px; font-size: 12px;" title="Emojis">😀</button>
+            
+            <div class="emoji-picker" id="emoji-picker" style="display:none;">
+                <span>😀</span><span>😂</span><span>😊</span><span>😍</span>
+                <span>👍</span><span>👎</span><span>🔥</span><span>💩</span>
+                <span>👏</span><span>🎉</span><span>🚀</span><span>❤️</span>
+                <span>👀</span><span>🌟</span><span>🎮</span><span>🎯</span>
+            </div>
+            
+            <input type="text" class="input-field message-input" id="msg-input" placeholder="Write a message..." autocomplete="off" maxlength="100">
+            <button type="submit" class="btn" id="send-btn">Send</button>
+        </form>
+        
+        <!-- Right players list sidebar -->
+        <div class="sidebar" id="sidebar">
+            <h2 class="sidebar-header" id="sidebar-title">Online Players</h2>
+            <div class="player-list" id="player-list">
+            </div>
+            <button class="btn" id="close-sidebar-btn" style="width: 100%;">Close</button>
+            <button class="btn" id="logout-btn" style="width: 100%; margin-top: 8px; background: #7a1f1f;">Log out</button>
+        </div>
+
+        <!-- Left chats list sidebar -->
+        <div class="sidebar left-sidebar" id="chats-sidebar">
+            <h2 class="sidebar-header" id="chats-title">Direct Messages</h2>
+            <div class="player-list" id="chats-list">
+            </div>
+            <button class="btn" id="close-chats-btn" style="width: 100%;">Close</button>
+        </div>
+        
+        <!-- Clicker Mini-game Modal -->
+        <div class="clicker-modal" id="clicker-modal">
+            <h2 class="sidebar-header" id="clicker-title" style="text-align: center; border-bottom: none; padding-bottom: 0;">Clicker Mine ⛏️</h2>
+            
+            <!-- Clicker Mode Tabs -->
+            <div class="clicker-tabs">
+                <button class="btn clicker-tab active" id="clicker-tab-mine" onclick="switchClickerTab('mine')">Добыча</button>
+                <button class="btn clicker-tab" id="clicker-tab-furnace" onclick="switchClickerTab('furnace')">Плавка</button>
+            </div>
+            
+            <div class="clicker-layout">
+                <!-- Mining Section (Tab 1) -->
+                <div id="clicker-tab-content-mine" class="clicker-tab-content">
+                    <div class="clicker-section">
+                        <div class="clicker-block-container" id="clicker-block">
+                            <img class="clicker-block-img" id="clicker-block-img" src="" alt="Block">
+                        </div>
+                        <div class="clicker-progress-container">
+                            <div class="clicker-progress-bar" id="clicker-progress-bar"></div>
+                            <div class="clicker-progress-text" id="clicker-progress-text">0 / 0</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Smelting Section (Tab 2) -->
+                <div id="clicker-tab-content-furnace" class="clicker-tab-content" style="display: none;">
+                    <div class="clicker-section" style="gap: 16px;">
+                        <div class="furnace-ui">
+                            <!-- Input Raw Slot -->
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                                <span id="furnace-ore-label" style="font-size: 8px; color: #aaa;">Руда</span>
+                                <div class="clicker-inv-slot" id="furnace-input-slot" style="width: 56px; height: 56px; cursor: default; border-color: #373737 #fff #fff #373737; position: relative;">
+                                    <img class="clicker-slot-icon" id="furnace-input-icon" src="" alt="" style="display: none; width: 36px; height: 36px;">
+                                    <span class="clicker-slot-count" id="furnace-input-count" style="display: none; font-size: 8px; right: 4px; bottom: 2px;">0</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Smelting Animation -->
+                            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;">
+                                <!-- Flame -->
+                                <div id="furnace-flame" style="width: 28px; height: 28px; background: #555; clip-path: polygon(50% 0%, 100% 30%, 85% 100%, 15% 100%, 0% 30%); position: relative; overflow: hidden;" title="Flame">
+                                    <div id="furnace-flame-inner" style="position: absolute; bottom: 0; left: 0; width: 100%; height: 0%; background: linear-gradient(to top, #ff3300, #ffaa00); transition: height 0.2s;"></div>
+                                </div>
+                                <!-- Progress Arrow -->
+                                <div style="width: 44px; height: 16px; background: #333; border: 2px solid #5c5c5c; position: relative; overflow: hidden;">
+                                    <div id="furnace-progress-arrow" style="width: 0%; height: 100%; background: #55ff55; transition: width 0.1s linear;"></div>
+                                    <span id="furnace-timer-text" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 8px; color: #fff; text-shadow: 1px 1px 0px #000;"></span>
+                                </div>
+                            </div>
+                            
+                            <!-- Output Refined Slot -->
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                                <span id="furnace-product-label" style="font-size: 8px; color: #aaa;">Продукт</span>
+                                <div class="clicker-inv-slot" id="furnace-output-slot" style="width: 56px; height: 56px; cursor: default; border-color: #373737 #fff #fff #373737; position: relative;">
+                                    <img class="clicker-slot-icon" id="furnace-output-icon" src="" alt="" style="display: none; width: 36px; height: 36px;">
+                                    <span class="clicker-slot-count" id="furnace-output-count" style="display: none; font-size: 8px; right: 4px; bottom: 2px;">0</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Smelting Controls -->
+                        <div id="furnace-controls" style="width: 100%; display: none; flex-direction: column; gap: 8px; background: rgba(0,0,0,0.5); padding: 12px; border: 2px solid #5c5c5c;">
+                            <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
+                                <span id="furnace-qty-label" style="font-size: 8px; color: #aaa;">Кол-во:</span>
+                                <input type="number" class="select-field" id="furnace-amount-input" value="1" min="1" style="width: 80px; padding: 4px; text-align: center;">
+                                <button type="button" class="btn" id="furnace-max-btn" style="padding: 4px 8px; font-size: 8px; margin: 0;">MAX</button>
+                            </div>
+                            <button type="button" class="btn" id="furnace-smelt-btn" style="margin-top: 4px; width: 100%; background: #a87e2e;">Начать плавку</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Inventory Section (Always shown below) -->
+                <div class="clicker-section" style="gap: 8px; align-items: stretch;">
+                    <h3 id="clicker-stock-title" style="font-size: 9px; color: #aaaaaa; text-align: center;">Your Stock:</h3>
+                    <div class="clicker-inv-grid" id="clicker-inv-grid">
+                    </div>
+                </div>
+
+                <!-- Transfer Panel (Only shown when refined/direct selected) -->
+                <div class="transfer-panel" id="transfer-panel" style="display: none;">
+                    <h3 id="transfer-panel-title">Transfer <span id="transfer-ore-name" style="color: #ffff55;">ore</span> to player on server:</h3>
+                    <select class="select-field" id="transfer-player-select">
+                        <option value="">Select player...</option>
+                    </select>
+                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                        <span id="transfer-amount-label" style="font-size: 8px; color: #aaa; white-space: nowrap;">Amount:</span>
+                        <input type="number" class="select-field" id="transfer-amount-input" value="1" min="1" style="width: 80px; padding: 4px;">
+                        <button type="button" class="btn" id="transfer-max-btn" style="padding: 4px 8px; font-size: 8px; margin: 0;">MAX</button>
+                    </div>
+                    <button type="button" class="btn" id="transfer-send-btn" style="margin-top: 4px;">Send resources</button>
+                </div>
+            </div>
+            
+            <button class="btn" id="close-clicker-btn" style="width: 100%;">Back to chat</button>
+        </div>
+        </div>
+    </div>
+    <script>
+        const messagesArea = document.getElementById('messages-area');
+        const scrollBottomBtn = document.getElementById('scroll-bottom-btn');
+
+        // ---- Chat scroll helpers ----
+        function isChatAtBottom() {
+            return (messagesArea.scrollHeight - messagesArea.scrollTop - messagesArea.clientHeight) < 40;
+        }
+        function hideScrollBtn() {
+            scrollBottomBtn.classList.remove('visible');
+            scrollBottomBtn.classList.remove('blink');
+        }
+        function updateScrollBtn() {
+            if (isChatAtBottom()) {
+                hideScrollBtn();
+            } else {
+                scrollBottomBtn.classList.add('visible');
+            }
+        }
+        function flashScrollBtn() {
+            // A new message arrived while the user is reading older history.
+            scrollBottomBtn.classList.add('visible');
+            scrollBottomBtn.classList.add('blink');
+        }
+        function scrollChatToBottom() {
+            messagesArea.scrollTo({ top: messagesArea.scrollHeight, behavior: 'smooth' });
+            hideScrollBtn();
+        }
+        messagesArea.addEventListener('scroll', () => {
+            if (isChatAtBottom()) hideScrollBtn();
+            else scrollBottomBtn.classList.add('visible');
+        });
+        scrollBottomBtn.addEventListener('click', scrollChatToBottom);
+
+        // ---- Custom panorama background (per-browser, stored locally; PC only) ----
+        const panoramaBg = document.querySelector('.panorama-bg');
+        const panoramaBtn = document.getElementById('panorama-btn');
+        const panoramaInput = document.getElementById('panorama-input');
+
+        function applyPanorama(url) {
+            if (url && panoramaBg) panoramaBg.style.backgroundImage = "url('" + url + "')";
+        }
+        try {
+            const savedPanorama = localStorage.getItem('mc_chat_panorama');
+            if (savedPanorama) applyPanorama(savedPanorama);
+        } catch (e) {}
+
+        if (panoramaBtn) {
+            panoramaBtn.addEventListener('click', () => panoramaInput.click());
+            panoramaInput.addEventListener('change', () => {
+                const file = panoramaInput.files[0];
+                panoramaInput.value = '';
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        // Downscale so it comfortably fits in localStorage (it gets blurred anyway).
+                        const maxW = 1920;
+                        const scale = Math.min(1, maxW / img.width);
+                        const cw = Math.max(1, Math.round(img.width * scale));
+                        const ch = Math.max(1, Math.round(img.height * scale));
+                        const canvas = document.createElement('canvas');
+                        canvas.width = cw;
+                        canvas.height = ch;
+                        canvas.getContext('2d').drawImage(img, 0, 0, cw, ch);
+                        let dataUrl;
+                        try {
+                            dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+                        } catch (e) {
+                            dataUrl = ev.target.result;
+                        }
+                        try {
+                            localStorage.setItem('mc_chat_panorama', dataUrl);
+                            applyPanorama(dataUrl);
+                        } catch (e) {
+                            applyPanorama(dataUrl); // apply for this session even if it won't persist
+                            alert(i18n[currentLang].panoramaTooLarge);
+                        }
+                    };
+                    img.onerror = () => alert(i18n[currentLang].errorUploading);
+                    img.src = ev.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        const nickInput = document.getElementById('nick-input');
+        const msgInput = document.getElementById('msg-input');
+        const chatForm = document.getElementById('chat-form');
+        const statusPanel = document.getElementById('status-panel');
+        const statusText = document.getElementById('status-text');
+        const serverName = document.getElementById('server-name');
+        const srvIcon = document.getElementById('srv-icon');
+        
+        const sidebar = document.getElementById('sidebar');
+        const toggleSidebarBtn = document.getElementById('toggle-sidebar-btn');
+        const closeSidebarBtn = document.getElementById('close-sidebar-btn');
+        const playerList = document.getElementById('player-list');
+        
+        const chatsSidebar = document.getElementById('chats-sidebar');
+        const chatsList = document.getElementById('chats-list');
+        const closeChatsBtn = document.getElementById('close-chats-btn');
+        
+        const tabsBar = document.getElementById('tabs-bar');
+        const fileInput = document.getElementById('file-input');
+        const attachBtn = document.getElementById('attach-btn');
+        const emojiBtn = document.getElementById('emoji-btn');
+        const emojiPicker = document.getElementById('emoji-picker');
+        const avatarInput = document.getElementById('avatar-input');
+        const avatarWrapper = document.getElementById('avatar-wrapper');
+        const myAvatar = document.getElementById('my-avatar');
+        const langSelect = document.getElementById('lang-select');
+        
+        let activeTab = 'global';
+        let globalMessages = [];
+        let pmMessages = {};
+        
+        const i18n = {
+            en: {
+                players: "Players",
+                chat: "Chat",
+                clickToChangeAvatar: "Click to change avatar",
+                nickname: "Nickname",
+                clickerMiniGame: "Clicker Mini-game",
+                attachImage: "Attach image",
+                emojis: "Emojis",
+                writeMessage: "Write a message...",
+                send: "Send",
+                onlinePlayers: "Online Players",
+                close: "Close",
+                directMessages: "Direct Messages",
+                clickerMine: "Clicker Mine ⛏️",
+                mineTab: "Mine",
+                smeltTab: "Smelting",
+                furnaceOre: "Ore",
+                furnaceProduct: "Product",
+                furnaceQty: "Amount:",
+                startSmelt: "Start smelting",
+                yourStock: "Your Stock:",
+                transferOre: "Transfer %ore% to player on server:",
+                selectPlayer: "Select player...",
+                amount: "Amount:",
+                sendResources: "Send resources",
+                backToChat: "Back to chat",
+                connecting: "Connecting...",
+                connected: "Connected",
+                errorStatus: "Error",
+                enterNick: "Please enter a nickname first",
+                invalidAmount: "Please specify a correct amount!",
+                notEnoughResources: "Not enough resources in stock!",
+                transferSuccess: "Resources successfully sent to player!",
+                transferError: "Error",
+                sending: "Sending...",
+                clickToView: "Click to open image",
+                writePM: "Write direct message",
+                pmWith: "DM: ",
+                noPlayers: "No players online",
+                noChats: "No direct messages",
+                errorUploading: "Upload error",
+                logIn: "Log in",
+                register: "Register",
+                passwordPh: "Password",
+                confirmPh: "Confirm password",
+                logout: "Log out",
+                authNickHint: "3-16 characters: letters, digits, underscore",
+                passwordsMismatch: "Passwords do not match",
+                changeBg: "Change background",
+                panoramaTooLarge: "Image too large to save — it will reset after reload"
+            },
+            ru: {
+                players: "Игроки",
+                chat: "Чат",
+                clickToChangeAvatar: "Нажмите, чтобы сменить аватарку",
+                nickname: "Никнейм",
+                clickerMiniGame: "Мини-игра Кликер",
+                attachImage: "Прикрепить изображение",
+                emojis: "Смайлики",
+                writeMessage: "Написать сообщение...",
+                send: "Отправить",
+                onlinePlayers: "Игроки в сети",
+                close: "Назад",
+                directMessages: "Переписки",
+                clickerMine: "Шахта Кликер ⛏️",
+                mineTab: "Добыча",
+                smeltTab: "Плавка",
+                furnaceOre: "Руда",
+                furnaceProduct: "Продукт",
+                furnaceQty: "Кол-во:",
+                startSmelt: "Начать плавку",
+                yourStock: "Ваш склад:",
+                transferOre: "Передать %ore% игроку на сервере:",
+                selectPlayer: "Выберите игрока...",
+                amount: "Количество:",
+                sendResources: "Отправить ресурсы",
+                backToChat: "Назад в чат",
+                connecting: "Подключение...",
+                connected: "В сети",
+                errorStatus: "Ошибка",
+                enterNick: "Сначала введите никнейм!",
+                invalidAmount: "Укажите корректное количество!",
+                notEnoughResources: "Недостаточно ресурсов на складе!",
+                transferSuccess: "Ресурсы успешно отправлены игроку!",
+                transferError: "Ошибка",
+                sending: "Отправка...",
+                clickToView: "Нажмите, чтобы открыть",
+                writePM: "Написать личное сообщение",
+                pmWith: "ЛС: ",
+                noPlayers: "Никого нет",
+                noChats: "Нет переписок",
+                errorUploading: "Ошибка загрузки",
+                logIn: "Вход",
+                register: "Регистрация",
+                passwordPh: "Пароль",
+                confirmPh: "Повторите пароль",
+                logout: "Выйти",
+                authNickHint: "3-16 символов: буквы, цифры, _",
+                passwordsMismatch: "Пароли не совпадают",
+                changeBg: "Сменить фон",
+                panoramaTooLarge: "Картинка слишком большая — сбросится после перезагрузки"
+            }
+        };
+
+        let currentLang = localStorage.getItem('mc_chat_lang') || 'en';
+
+        function updateLanguageUI() {
+            const lang = currentLang;
+            localStorage.setItem('mc_chat_lang', lang);
+            langSelect.value = lang;
+            
+            document.getElementById('tab-global').textContent = i18n[lang].chat;
+            avatarWrapper.title = i18n[lang].clickToChangeAvatar;
+            nickInput.placeholder = i18n[lang].nickname;
+            openClickerBtn.title = i18n[lang].clickerMiniGame;
+            attachBtn.title = i18n[lang].attachImage;
+            emojiBtn.title = i18n[lang].emojis;
+            const panoBtnEl = document.getElementById('panorama-btn');
+            if (panoBtnEl) panoBtnEl.title = i18n[lang].changeBg;
+            msgInput.placeholder = i18n[lang].writeMessage;
+            
+            const sendBtn = document.getElementById('send-btn');
+            if (sendBtn.textContent !== '...' && sendBtn.textContent !== 'Sending...' && sendBtn.textContent !== 'Отправка...') {
+                sendBtn.textContent = i18n[lang].send;
+            }
+            
+            document.getElementById('sidebar-title').textContent = i18n[lang].onlinePlayers;
+            closeSidebarBtn.textContent = i18n[lang].close;
+            document.getElementById('chats-title').textContent = i18n[lang].directMessages;
+            closeChatsBtn.textContent = i18n[lang].close;
+            document.getElementById('clicker-title').textContent = i18n[lang].clickerMine;
+            document.getElementById('clicker-stock-title').textContent = i18n[lang].yourStock;
+            document.getElementById('clicker-tab-mine').textContent = i18n[lang].mineTab;
+            document.getElementById('clicker-tab-furnace').textContent = i18n[lang].smeltTab;
+            document.getElementById('furnace-ore-label').textContent = i18n[lang].furnaceOre;
+            document.getElementById('furnace-product-label').textContent = i18n[lang].furnaceProduct;
+            document.getElementById('furnace-qty-label').textContent = i18n[lang].furnaceQty;
+            document.getElementById('furnace-smelt-btn').textContent = i18n[lang].startSmelt;
+            document.getElementById('logout-btn').textContent = i18n[lang].logout;
+            if (typeof authMode !== 'undefined') {
+                setAuthMode(authMode);
+            }
+            
+            let oreSpan = `<span id="transfer-ore-name" style="color: #ffff55;">${selectedOreSlot ? (serverOresList.find(o => o.id === selectedOreSlot)?.name || selectedOreSlot) : 'ore'}</span>`;
+            document.getElementById('transfer-panel-title').innerHTML = i18n[lang].transferOre.replace('%ore%', oreSpan);
+            
+            document.getElementById('transfer-amount-label').textContent = i18n[lang].amount;
+            transferSendBtn.textContent = i18n[lang].sendResources;
+            closeClickerBtn.textContent = i18n[lang].backToChat;
+            
+            // Image titles
+            document.querySelectorAll('.chat-image').forEach(img => img.title = i18n[lang].clickToView);
+            
+            // Senders title
+            document.querySelectorAll('.sender-name').forEach(s => {
+                if (s.style.cursor === 'pointer') {
+                    s.title = i18n[lang].writePM;
+                }
+            });
+            
+            // Tab titles
+            document.querySelectorAll('.tab').forEach(t => {
+                const target = t.getAttribute('data-target');
+                if (target && target.startsWith('pm-')) {
+                    const cleanNick = target.replace('pm-', '');
+                    t.childNodes[0].nodeValue = `${i18n[lang].pmWith}${cleanNick} `;
+                }
+            });
+            
+            // Status panel text
+            if (statusPanel.className.includes('connecting')) {
+                statusText.textContent = (statusText.textContent === '...' ? '...' : i18n[lang].connecting);
+            } else {
+                statusText.textContent = i18n[lang].connected;
+            }
+            
+            // Re-render select option
+            if (transferPlayerSelect.options.length > 0) {
+                transferPlayerSelect.options[0].textContent = i18n[lang].selectPlayer;
+            }
+            
+            updateToggleSidebarBtnText();
+        }
+
+        function updateToggleSidebarBtnText(online = null, max = null) {
+            if (online !== null && max !== null) {
+                window.lastOnlineCount = online;
+                window.lastMaxPlayers = max;
+            }
+            const o = window.lastOnlineCount !== undefined ? window.lastOnlineCount : 0;
+            const m = window.lastMaxPlayers !== undefined ? window.lastMaxPlayers : 20;
+            toggleSidebarBtn.textContent = `${i18n[currentLang].players} (${o}/${m})`;
+        }
+        
+        // Nick is now bound to the logged-in account (set after /auth/me or login)
+        // and can no longer be edited freely, so no impersonation is possible.
+        nickInput.readOnly = true;
+
+        toggleSidebarBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('open');
+            chatsSidebar.classList.remove('open');
+        });
+        
+        closeSidebarBtn.addEventListener('click', () => {
+            sidebar.classList.remove('open');
+        });
+        
+        srvIcon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            renderChatsList();
+            chatsSidebar.classList.toggle('open');
+            sidebar.classList.remove('open');
+        });
+        
+        closeChatsBtn.addEventListener('click', () => {
+            chatsSidebar.classList.remove('open');
+        });
+        
+        langSelect.addEventListener('change', () => {
+            currentLang = langSelect.value;
+            updateLanguageUI();
+            if (chatsSidebar.classList.contains('open')) renderChatsList();
+            if (sidebar.classList.contains('open')) loadPlayers();
+        });
+        
+        avatarWrapper.addEventListener('click', () => avatarInput.click());
+        avatarInput.addEventListener('change', () => {
+            const file = avatarInput.files[0];
+            if (!file) return;
+            const nick = nickInput.value.trim();
+            if (!nick) { alert(i18n[currentLang].enterNick); return; }
+            fetch('/avatar/upload?nick=' + encodeURIComponent(nick), {
+                method: 'POST',
+                body: file
+            })
+            .then(res => res.json())
+            .then(data => {
+                avatarInput.value = '';
+                if (data && data.status === 'ok') {
+                    myAvatar.src = '/avatar/' + nick + '?t=' + Date.now();
+                    loadPlayers();
+                } else {
+                    alert((data && data.message) ? data.message : i18n[currentLang].errorUploading);
+                }
+            })
+            .catch(err => {
+                avatarInput.value = '';
+                console.error('Avatar upload error', err);
+            });
+        });
+        
+        function loadMyAvatar() {
+            const nick = nickInput.value.trim();
+            if (!nick) return;
+            const testImg = new Image();
+            testImg.onload = () => { myAvatar.src = '/avatar/' + nick + '?t=' + Date.now(); };
+            testImg.onerror = () => {};
+            testImg.src = '/avatar/' + nick + '?t=' + Date.now();
+        }
+        
+        const openClickerBtn = document.getElementById('open-clicker-btn');
+        const closeClickerBtn = document.getElementById('close-clicker-btn');
+        const clickerModal = document.getElementById('clicker-modal');
+        const clickerBlock = document.getElementById('clicker-block');
+        const clickerBlockImg = document.getElementById('clicker-block-img');
+        const clickerProgressBar = document.getElementById('clicker-progress-bar');
+        const clickerProgressText = document.getElementById('clicker-progress-text');
+        
+        const transferPanel = document.getElementById('transfer-panel');
+        const transferOreName = document.getElementById('transfer-ore-name');
+        const transferPlayerSelect = document.getElementById('transfer-player-select');
+        const transferSendBtn = document.getElementById('transfer-send-btn');
+        const transferAmountInput = document.getElementById('transfer-amount-input');
+        const transferMaxBtn = document.getElementById('transfer-max-btn');
+        
+        let clickerInventory = {};
+        let selectedOreSlot = null;
+        let currentOreType = "";
+        let currentHits = 0;
+        let maxHits = 0;
+        let serverOresList = [];
+        if (typeof ORE_TEXTURES === 'undefined') { window.ORE_TEXTURES = {}; }
+
+        const ALL_ITEMS = [
+            { id: 'coal', name: 'Raw Coal', isRaw: true, refinedId: 'coal_refined', baseColor: '#707070' },
+            { id: 'iron', name: 'Raw Iron Ore', isRaw: true, refinedId: 'iron_refined', baseColor: '#d8af93' },
+            { id: 'diamond', name: 'Raw Diamond Ore', isRaw: true, refinedId: 'diamond_refined', baseColor: '#55ffff' },
+            { id: 'lapis', name: 'Lapis Lazuli', isRaw: false, baseColor: '#1010a0' },
+            { id: 'redstone', name: 'Redstone Dust', isRaw: false, baseColor: '#ff0000' },
+            { id: 'netherite', name: 'Netherite Block', isRaw: false, baseColor: '#312c36' },
+            { id: 'coal_refined', name: 'Coal', isRaw: false, baseColor: '#707070' },
+            { id: 'iron_refined', name: 'Iron Ingot', isRaw: false, baseColor: '#ffffff' },
+            { id: 'diamond_refined', name: 'Diamond', isRaw: false, baseColor: '#55ffff' }
+        ];
+
+        let activeClickerTab = 'mine'; // 'mine' or 'furnace'
+        let isSmeltingInProgress = false;
+
+        function adjustColor(hex, percent) {
+            let num = parseInt(hex.replace("#",""), 16),
+                amt = Math.round(2.55 * percent),
+                R = (num >> 16) + amt,
+                G = (num >> 8 & 0x00FF) + amt,
+                B = (num & 0x0000FF) + amt;
+            return "#" + (0x1000000 + (R<255?R<0?0:R:255)*0x10000 + (G<255?G<0?0:G:255)*0x100 + (B<255?B<0?0:B:255)).toString(16).slice(1);
+        }
+
+        function getOreSvgUrl(oreType, hits, maxHits) {
+            const texture = ORE_TEXTURES[oreType];
+            let crackPath = "";
+            const ratio = hits / maxHits;
+            if (ratio >= 0.75) {
+                crackPath = "M 1 2 L 3 2 L 3 4 L 5 4 L 5 7 M 6 1 L 6 3 L 7 5 L 4 5";
+            } else if (ratio >= 0.5) {
+                crackPath = "M 1 2 L 3 2 L 3 4 L 5 4 M 6 1 L 6 3 L 7 5";
+            } else if (ratio >= 0.25) {
+                crackPath = "M 1 2 L 3 2 M 6 1 L 6 3";
+            }
+
+            if (texture) {
+                let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="100%" height="100%" style="image-rendering:pixelated;">`;
+                svg += `<image href="${texture}" x="0" y="0" width="16" height="16" style="image-rendering:pixelated;"/>`;
+                if (crackPath) {
+                    svg += `<g transform="scale(2)" stroke="black" stroke-width="0.5" fill="none" opacity="0.7">`;
+                    svg += `<path d="${crackPath}"/>`;
+                    svg += `</g>`;
+                }
+                svg += `</svg>`;
+                return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+            }
+
+            // Fallback (e.g. if netherite fails)
+            let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8" width="100%" height="100%" style="image-rendering:pixelated;">`;
+            svg += `<rect x="0" y="0" width="8" height="8" fill="#312c36"/>`;
+            if (crackPath) {
+                svg += `<path d="${crackPath}" stroke="black" stroke-width="0.5" fill="none" opacity="0.6"/>`;
+            }
+            svg += `</svg>`;
+            return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+        }
+
+        let furnacePollInterval = null;
+        let lastOutputCount = 0;
+
+        function startFurnacePolling() {
+            if (furnacePollInterval) return;
+            pollFurnaceStatus();
+            furnacePollInterval = setInterval(pollFurnaceStatus, 500);
+        }
+
+        function stopFurnacePolling() {
+            if (furnacePollInterval) {
+                clearInterval(furnacePollInterval);
+                furnacePollInterval = null;
+            }
+        }
+
+        function switchClickerTab(tab) {
+            activeClickerTab = tab;
+            document.getElementById('clicker-tab-mine').classList.toggle('active', tab === 'mine');
+            document.getElementById('clicker-tab-furnace').classList.toggle('active', tab === 'furnace');
+            
+            document.getElementById('clicker-tab-content-mine').style.display = tab === 'mine' ? 'block' : 'none';
+            document.getElementById('clicker-tab-content-furnace').style.display = tab === 'furnace' ? 'block' : 'none';
+            
+            if (tab === 'mine') {
+                stopFurnacePolling();
+                if (selectedOreSlot) {
+                    const itemInfo = ALL_ITEMS.find(item => item.id === selectedOreSlot);
+                    if (itemInfo && !itemInfo.isRaw) {
+                        transferPanel.style.display = 'flex';
+                    } else {
+                        transferPanel.style.display = 'none';
+                    }
+                } else {
+                    transferPanel.style.display = 'none';
+                }
+            } else {
+                transferPanel.style.display = 'none';
+                startFurnacePolling();
+                if (selectedOreSlot) {
+                    const itemInfo = ALL_ITEMS.find(item => item.id === selectedOreSlot);
+                    if (itemInfo && itemInfo.isRaw) {
+                        updateFurnaceInput(selectedOreSlot);
+                    } else {
+                        clearFurnaceUI();
+                    }
+                } else {
+                    clearFurnaceUI();
+                }
+            }
+        }
+
+        function updateFurnaceInput(oreId) {
+            const itemInfo = ALL_ITEMS.find(item => item.id === oreId);
+            if (!itemInfo) return;
+            const count = clickerInventory[oreId] || 0;
+            
+            const inputIcon = document.getElementById('furnace-input-icon');
+            const inputCount = document.getElementById('furnace-input-count');
+            let texName = oreId + '_ore';
+            
+            inputIcon.src = ORE_TEXTURES[texName] || ORE_TEXTURES[oreId];
+            inputIcon.style.display = 'block';
+            
+            inputCount.textContent = count;
+            inputCount.style.display = 'block';
+            
+            const outputIcon = document.getElementById('furnace-output-icon');
+            outputIcon.src = ORE_TEXTURES[itemInfo.refinedId] || ORE_TEXTURES[oreId];
+            outputIcon.style.display = 'block';
+            outputIcon.style.opacity = '0.35';
+            outputIcon.style.filter = 'grayscale(100%)';
+            
+            const amountInput = document.getElementById('furnace-amount-input');
+            amountInput.value = 1;
+            amountInput.max = count;
+            
+            document.getElementById('furnace-controls').style.display = 'flex';
+        }
+
+        function clearFurnaceUI() {
+            document.getElementById('furnace-input-icon').style.display = 'none';
+            document.getElementById('furnace-input-count').style.display = 'none';
+            document.getElementById('furnace-output-icon').style.display = 'none';
+            document.getElementById('furnace-controls').style.display = 'none';
+            document.getElementById('furnace-timer-text').textContent = '';
+            document.getElementById('furnace-progress-arrow').style.width = '0%';
+            document.getElementById('furnace-flame-inner').style.height = '0%';
+        }
+
+        function startSmelting() {
+            if (!selectedOreSlot) return;
+            const itemInfo = ALL_ITEMS.find(item => item.id === selectedOreSlot);
+            if (!itemInfo || !itemInfo.isRaw) return;
+            
+            const amountInput = document.getElementById('furnace-amount-input');
+            const amount = parseInt(amountInput.value) || 1;
+            const maxAvailable = clickerInventory[selectedOreSlot] || 0;
+            if (amount < 1 || amount > maxAvailable) {
+                alert(i18n[currentLang].invalidAmount || "Invalid amount");
+                return;
+            }
+            
+            const nick = nickInput.value.trim();
+            if (!nick) return;
+            
+            const params = new URLSearchParams();
+            params.append('nick', nick);
+            params.append('item', selectedOreSlot);
+            params.append('amount', amount);
+            
+            fetch('/clicker/furnace/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    amountInput.value = 1;
+                    loadClickerStatus();
+                    pollFurnaceStatus();
+                } else {
+                    alert(data.message);
+                }
+            })
+            .catch(err => console.error('Error adding to furnace', err));
+        }
+
+        function pollFurnaceStatus() {
+            const nick = nickInput.value.trim();
+            if (!nick) return;
+            
+            fetch('/clicker/furnace/status?nick=' + encodeURIComponent(nick))
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status !== 'ok') return;
+                    
+                    const inputSlot = document.getElementById('furnace-input-slot');
+                    const inputIcon = document.getElementById('furnace-input-icon');
+                    const inputCount = document.getElementById('furnace-input-count');
+                    
+                    const outputSlot = document.getElementById('furnace-output-slot');
+                    const outputIcon = document.getElementById('furnace-output-icon');
+                    const outputCount = document.getElementById('furnace-output-count');
+                    
+                    const flameInner = document.getElementById('furnace-flame-inner');
+                    const progressArrow = document.getElementById('furnace-progress-arrow');
+                    const timerText = document.getElementById('furnace-timer-text');
+                    
+                    if (data.sourceCount > 0 && data.sourceItem) {
+                        let texName = data.sourceItem;
+                        if (data.sourceItem === 'coal') texName = 'coal_ore';
+                        else if (data.sourceItem === 'iron') texName = 'iron_ore';
+                        else if (data.sourceItem === 'diamond') texName = 'diamond_ore';
+                        
+                        inputIcon.src = ORE_TEXTURES[texName] || ORE_TEXTURES[data.sourceItem] || getOreSvgUrl(texName, 0, 1);
+                        inputIcon.style.display = 'block';
+                        inputCount.textContent = data.sourceCount;
+                        inputCount.style.display = 'block';
+                        
+                        inputSlot.style.cursor = 'pointer';
+                        inputSlot.title = currentLang === 'ru' ? 'Забрать сырье' : 'Take back raw items';
+                    } else {
+                        inputIcon.style.display = 'none';
+                        inputCount.style.display = 'none';
+                        inputSlot.style.cursor = 'default';
+                        inputSlot.title = '';
+                    }
+                    
+                    if (data.outputCount > 0 && data.outputItem) {
+                        outputIcon.src = ORE_TEXTURES[data.outputItem] || getOreSvgUrl(data.outputItem, 0, 1);
+                        outputIcon.style.display = 'block';
+                        outputIcon.style.opacity = '1.0';
+                        outputIcon.style.filter = 'none';
+                        outputCount.textContent = data.outputCount;
+                        outputCount.style.display = 'block';
+                        
+                        outputSlot.style.cursor = 'pointer';
+                        outputSlot.title = currentLang === 'ru' ? 'Забрать продукт' : 'Collect smelted items';
+                        
+                        if (data.outputCount > lastOutputCount) {
+                            playNotificationSound();
+                            loadClickerStatus();
+                        }
+                        lastOutputCount = data.outputCount;
+                    } else {
+                        lastOutputCount = 0;
+                        if (data.isActive && data.outputItem) {
+                            outputIcon.src = ORE_TEXTURES[data.outputItem] || getOreSvgUrl(data.outputItem, 0, 1);
+                            outputIcon.style.display = 'block';
+                            outputIcon.style.opacity = '0.35';
+                            outputIcon.style.filter = 'grayscale(100%)';
+                            outputCount.style.display = 'none';
+                            outputSlot.style.cursor = 'default';
+                            outputSlot.title = '';
+                        } else {
+                            outputIcon.style.display = 'none';
+                            outputCount.style.display = 'none';
+                            outputSlot.style.cursor = 'default';
+                            outputSlot.title = '';
+                        }
+                    }
+                    
+                    if (data.isActive) {
+                        const flameHeight = 70 + Math.floor(Math.random() * 31);
+                        flameInner.style.height = flameHeight + '%';
+                        
+                        if (data.cookTotal > 0) {
+                            const percent = Math.min(100, Math.floor((data.cookProgress / data.cookTotal) * 100));
+                            progressArrow.style.width = percent + '%';
+                            const remaining = Math.max(0, data.cookTotal - data.cookProgress);
+                            timerText.textContent = Math.ceil(remaining) + 's';
+                        } else {
+                            progressArrow.style.width = '0%';
+                            timerText.textContent = '';
+                        }
+                    } else {
+                        flameInner.style.height = '0%';
+                        progressArrow.style.width = '0%';
+                        timerText.textContent = '';
+                    }
+                })
+                .catch(err => console.error("Error polling furnace:", err));
+        }
+
+        function takeFurnaceSlot(slotName) {
+            const nick = nickInput.value.trim();
+            if (!nick) return;
+            
+            const params = new URLSearchParams();
+            params.append('nick', nick);
+            params.append('slot', slotName);
+            
+            fetch('/clicker/furnace/take', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    loadClickerStatus();
+                    pollFurnaceStatus();
+                } else {
+                    alert(data.message);
+                }
+            })
+            .catch(err => console.error("Error taking items from slot:", err));
+        }
+
+        function rebuildInventoryGrid() {
+            const grid = document.getElementById('clicker-inv-grid');
+            grid.innerHTML = '';
+            ALL_ITEMS.forEach(item => {
+                const slot = document.createElement('div');
+                slot.className = 'clicker-inv-slot';
+                slot.setAttribute('data-ore', item.id);
+                slot.id = 'slot-' + item.id;
+                slot.title = item.name;
+                if (selectedOreSlot === item.id) {
+                    slot.classList.add('selected');
+                }
+                slot.addEventListener('click', () => selectOreSlot(item.id));
+                
+                const img = document.createElement('img');
+                img.className = 'clicker-slot-icon';
+                img.id = 'icon-' + item.id;
+                
+                let texName = item.id;
+                if (item.id === 'coal') texName = 'coal_ore';
+                else if (item.id === 'iron') texName = 'iron_ore';
+                else if (item.id === 'diamond') texName = 'diamond_ore';
+                
+                img.src = ORE_TEXTURES[texName] || ORE_TEXTURES[item.id] || getOreSvgUrl(texName, 0, 1);
+                img.alt = item.name;
+                
+                const countSpan = document.createElement('span');
+                countSpan.className = 'clicker-slot-count';
+                countSpan.id = 'count-' + item.id;
+                countSpan.textContent = clickerInventory[item.id] || 0;
+                
+                const count = clickerInventory[item.id] || 0;
+                if (count === 0) {
+                    img.style.opacity = '0.3';
+                    img.style.filter = 'grayscale(100%)';
+                }
+                
+                slot.appendChild(img);
+                slot.appendChild(countSpan);
+                grid.appendChild(slot);
+            });
+        }
+
+        function loadClickerStatus() {
+            const nick = nickInput.value.trim();
+            if (!nick) return;
+            fetch('/clicker/status?nick=' + encodeURIComponent(nick))
+                .then(res => res.json())
+                .then(data => {
+                    currentOreType = data.ore;
+                    currentHits = data.hits;
+                    maxHits = data.maxHits;
+                    clickerInventory = data.inventory;
+                    rebuildInventoryGrid();
+                    updateClickerUI();
+                })
+                .catch(err => console.error('Error loading clicker status', err));
+        }
+
+        function updateClickerUI() {
+            let texName = currentOreType;
+            if (currentOreType === 'coal') texName = 'coal_ore';
+            else if (currentOreType === 'iron') texName = 'iron_ore';
+            else if (currentOreType === 'diamond') texName = 'diamond_ore';
+            else if (currentOreType === 'lapis') texName = 'lapis_ore';
+            else if (currentOreType === 'redstone') texName = 'redstone_ore';
+            
+            clickerBlockImg.src = getOreSvgUrl(texName, currentHits, maxHits);
+            
+            const percent = Math.min(100, Math.floor((currentHits / maxHits) * 100));
+            clickerProgressBar.style.width = percent + '%';
+            clickerProgressText.textContent = `${currentHits} / ${maxHits}`;
+            
+            ALL_ITEMS.forEach(item => {
+                const countSpan = document.getElementById('count-' + item.id);
+                if (countSpan) {
+                    countSpan.textContent = clickerInventory[item.id] || 0;
+                }
+                const img = document.getElementById('icon-' + item.id);
+                if (img) {
+                    const count = clickerInventory[item.id] || 0;
+                    if (count === 0) {
+                        img.style.opacity = '0.3';
+                        img.style.filter = 'grayscale(100%)';
+                    } else {
+                        img.style.opacity = '1.0';
+                        img.style.filter = 'none';
+                    }
+                }
+            });
+            
+            if (selectedOreSlot) {
+                const count = clickerInventory[selectedOreSlot] || 0;
+                if (count <= 0) {
+                    transferPanel.style.display = 'none';
+                    document.querySelectorAll('.clicker-inv-slot').forEach(s => s.classList.remove('selected'));
+                    selectedOreSlot = null;
+                } else {
+                    const itemInfo = ALL_ITEMS.find(item => item.id === selectedOreSlot);
+                    if (itemInfo && itemInfo.isRaw && activeClickerTab === 'furnace') {
+                        updateFurnaceInput(selectedOreSlot);
+                    }
+                }
+            }
+        }
+
+        function clickBlock(e) {
+            const nick = nickInput.value.trim();
+            if (!nick) return;
+            
+            const rect = clickerBlock.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const floater = document.createElement('span');
+            floater.className = 'floating-hit';
+            floater.textContent = '-1';
+            floater.style.left = x + 'px';
+            floater.style.top = y + 'px';
+            clickerBlock.appendChild(floater);
+            setTimeout(() => floater.remove(), 600);
+            
+            const params = new URLSearchParams();
+            params.append('nick', nick);
+            
+            fetch('/clicker/click', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params
+            })
+            .then(res => res.json())
+            .then(data => {
+                currentOreType = data.ore;
+                currentHits = data.hits;
+                maxHits = data.maxHits;
+                clickerInventory = data.inventory;
+                updateClickerUI();
+            })
+            .catch(err => console.error('Error clicking block', err));
+        }
+
+        function selectOreSlot(ore) {
+            if (isSmeltingInProgress) return; // Ignore selection during smelting
+            const count = clickerInventory[ore] || 0;
+            if (count <= 0) {
+                document.querySelectorAll('.clicker-inv-slot').forEach(s => s.classList.remove('selected'));
+                selectedOreSlot = null;
+                transferPanel.style.display = 'none';
+                clearFurnaceUI();
+                return;
+            }
+            
+            document.querySelectorAll('.clicker-inv-slot').forEach(s => {
+                if (s.getAttribute('data-ore') === ore) {
+                    s.classList.add('selected');
+                } else {
+                    s.classList.remove('selected');
+                }
+            });
+            
+            selectedOreSlot = ore;
+            const itemInfo = ALL_ITEMS.find(item => item.id === ore);
+            showActionPanelForItem(itemInfo);
+        }
+
+        function showActionPanelForItem(itemInfo) {
+            if (!itemInfo) return;
+            const count = clickerInventory[itemInfo.id] || 0;
+            
+            if (itemInfo.isRaw) {
+                switchClickerTab('furnace');
+                updateFurnaceInput(itemInfo.id);
+                transferPanel.style.display = 'none';
+            } else {
+                switchClickerTab('mine');
+                
+                transferOreName.textContent = itemInfo.name;
+                transferAmountInput.value = 1;
+                transferAmountInput.max = count;
+                transferPanel.style.display = 'flex';
+                
+                fetch('/players')
+                    .then(res => res.json())
+                    .then(data => {
+                        transferPlayerSelect.innerHTML = `<option value="">${i18n[currentLang].selectPlayer}</option>`;
+                        data.forEach(p => {
+                            if (!p.isWeb) {
+                                const opt = document.createElement('option');
+                                opt.value = p.name;
+                                opt.textContent = p.name;
+                                transferPlayerSelect.appendChild(opt);
+                            }
+                        });
+                    });
+            }
+        }
+
+        function transferOre() {
+            const nick = nickInput.value.trim();
+            const toPlayer = transferPlayerSelect.value;
+            if (!nick || !selectedOreSlot || !toPlayer) return;
+            
+            const amount = parseInt(transferAmountInput.value) || 1;
+            const maxAvailable = clickerInventory[selectedOreSlot] || 0;
+            if (amount < 1) {
+                alert(i18n[currentLang].invalidAmount);
+                return;
+            }
+            if (amount > maxAvailable) {
+                alert(i18n[currentLang].notEnoughResources);
+                return;
+            }
+            
+            const params = new URLSearchParams();
+            params.append('nick', nick);
+            params.append('ore', selectedOreSlot);
+            params.append('to', toPlayer);
+            params.append('amount', amount);
+            
+            fetch('/clicker/transfer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params
+            })
+            .then(res => res.json())
+            .then(data => {
+                clickerInventory = data.inventory;
+                if (data.success) {
+                    alert(i18n[currentLang].transferSuccess);
+                } else {
+                    alert(i18n[currentLang].transferError + ': ' + data.error);
+                }
+                updateClickerUI();
+            })
+            .catch(err => console.error('Error transferring ore', err));
+        }
+
+        // Attach furnace event listeners during layout bindings
+        setTimeout(() => {
+            const smeltBtn = document.getElementById('furnace-smelt-btn');
+            const maxBtn = document.getElementById('furnace-max-btn');
+            if (smeltBtn) smeltBtn.addEventListener('click', startSmelting);
+            const inputSlot = document.getElementById('furnace-input-slot');
+            const outputSlot = document.getElementById('furnace-output-slot');
+            if (inputSlot) inputSlot.addEventListener('click', () => takeFurnaceSlot('source'));
+            if (outputSlot) outputSlot.addEventListener('click', () => takeFurnaceSlot('output'));
+            if (maxBtn) {
+                maxBtn.addEventListener('click', () => {
+                    if (selectedOreSlot) {
+                        document.getElementById('furnace-amount-input').value = clickerInventory[selectedOreSlot] || 1;
+                    }
+                });
+            }
+        }, 500);
+
+        let notifyAudio = null;
+        function playNotificationSound() {
+            try {
+                if (!notifyAudio) {
+                    notifyAudio = new Audio('/notify.wav');
+                    notifyAudio.volume = 0.5;
+                }
+                notifyAudio.currentTime = 0;
+                const p = notifyAudio.play();
+                if (p && typeof p.catch === 'function') p.catch(() => playBeepFallback());
+            } catch (e) {
+                playBeepFallback();
+            }
+        }
+
+        function playBeepFallback() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                osc.type = "sine";
+
+                osc.frequency.setValueAtTime(1318.51, ctx.currentTime);
+                osc.frequency.setValueAtTime(1567.98, ctx.currentTime + 0.08);
+
+                gain.gain.setValueAtTime(0.08, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+
+                osc.start();
+                osc.stop(ctx.currentTime + 0.4);
+            } catch (e) {
+                console.error("Audio playback error:", e);
+            }
+        }
+
+function sendMessage(text) {
+
+const nick = nickInput.value.trim();
+
+if (!text || !nick) return;
+
+
+
+if (activeTab === 'global') {
+
+const params = new URLSearchParams();
+
+params.append('nick', nick);
+
+params.append('message', text);
+
+fetch('/send', {
+
+method: 'POST',
+
+headers: {
+
+'Content-Type': 'application/x-www-form-urlencoded'
+
+},
+
+body: params
+
+}).catch(err => console.error("Error sending message", err));
+
+} else {
+
+const other = activeTab.replace('pm-', '');
+
+const params = new URLSearchParams();
+
+params.append('from', nick);
+
+params.append('to', other);
+
+params.append('message', text);
+
+fetch('/private/send', {
+
+method: 'POST',
+
+headers: {
+
+'Content-Type': 'application/x-www-form-urlencoded'
+
+},
+
+body: params
+
+}).catch(err => console.error("Error sending PM", err));
+
+}
+
+}
+
+
+function parseMinecraftColors(text) {
+
+if (!text) return "";
+
+const colorMap = {
+
+'0': '#000000', '1': '#0000aa', '2': '#00aa00', '3': '#00aaaa',
+
+'4': '#aa0000', '5': '#aa00aa', '6': '#ffaa00', '7': '#aaaaaa',
+
+'8': '#555555', '9': '#5555ff', 'a': '#55ff55', 'b': '#55ffff',
+
+'c': '#ff5555', 'd': '#ff55ff', 'e': '#ffff55', 'f': '#ffffff'
+
+};
+
+let html = "";
+
+let bold = false;
+
+let italic = false;
+
+let color = null;
+
+
+
+for (let i = 0; i < text.length; i++) {
+
+if (text[i] === '§' && i + 1 < text.length) {
+
+let code = text[i+1].toLowerCase();
+
+i++; 
+
+if (colorMap[code] !== undefined) {
+
+color = colorMap[code];
+
+} else if (code === 'l') {
+
+bold = true;
+
+} else if (code === 'o') {
+
+italic = true;
+
+} else if (code === 'r') {
+
+color = null;
+
+bold = false;
+
+italic = false;
+
+}
+
+continue;
+
+}
+
+
+
+let style = "";
+
+if (color) style += `color:${color};`;
+
+if (bold) style += `font-weight:bold;`;
+
+if (italic) style += `font-style:italic;`;
+
+
+
+let char = text[i];
+
+if (char === ' ') char = '&nbsp;';
+
+else if (char === '<') char = '&lt;';
+
+else if (char === '>') char = '&gt;';
+
+
+
+if (style) {
+
+html += `<span style="${style}">${char}</span>`;
+
+} else {
+
+html += char;
+
+}
+
+}
+
+return html;
+
+}
+
+
+function formatTime(timestamp) {
+
+const date = new Date(timestamp);
+
+const h = String(date.getHours()).padStart(2, '0');
+
+const m = String(date.getMinutes()).padStart(2, '0');
+
+return `${h}:${m}`;
+
+}
+
+
+function formatText(text) {
+
+if (text.includes('[img]') && text.includes('[/img]')) {
+
+const url = text.substring(text.indexOf('[img]') + 5, text.indexOf('[/img]'));
+
+return `<img src="${url}" class="chat-image" onclick="window.open('${url}', '_blank')" title="${i18n[currentLang].clickToView}">`;
+
+}
+
+return parseMinecraftColors(text);
+
+}
+
+
+function appendMessageToDOM(sender, text, time, isSelf, isWeb) {
+
+const msgDiv = document.createElement('div');
+
+
+
+if (sender === '[Server]') {
+
+msgDiv.className = 'msg-row system-msg';
+
+} else {
+
+msgDiv.className = `msg-row ${isSelf ? 'self-msg' : ''}`;
+
+}
+
+
+
+const timeSpan = document.createElement('span');
+
+timeSpan.className = 'msg-time';
+
+timeSpan.textContent = `[${formatTime(time)}]`;
+
+
+
+const contentSpan = document.createElement('span');
+
+const formattedSender = parseMinecraftColors(sender);
+
+const formattedText = formatText(text);
+
+
+
+if (sender === '[Server]') {
+
+contentSpan.innerHTML = formattedText;
+
+} else if (isWeb) {
+
+contentSpan.innerHTML = `&lt;<span class="sender-name" style="cursor:pointer;" onclick="openPrivateChat('${sender}')" title="${i18n[currentLang].writePM}">${formattedSender}</span>&gt; ${formattedText}`;
+
+} else {
+
+contentSpan.innerHTML = `&lt;<span class="sender-name" style="cursor:default;">${formattedSender}</span>&gt; ${formattedText}`;
+
+}
+
+
+
+msgDiv.appendChild(timeSpan);
+
+msgDiv.appendChild(contentSpan);
+
+messagesArea.appendChild(msgDiv);
+
+}
+
+
+function renderMessages(opts) {
+
+opts = opts || {};
+
+const wasAtBottom = isChatAtBottom();
+
+const prevScroll = messagesArea.scrollTop;
+
+messagesArea.innerHTML = '';
+
+const currentNick = nickInput.value.trim();
+
+if (activeTab === 'global') {
+
+globalMessages.forEach(msg => {
+
+const isSelf = (msg.sender === currentNick);
+
+appendMessageToDOM(msg.sender, msg.text, msg.time, isSelf, msg.isWeb);
+
+});
+
+} else {
+
+const other = activeTab.replace('pm-', '');
+
+const list = pmMessages[other] || [];
+
+list.forEach(msg => {
+
+const isSelf = (msg.from === currentNick);
+
+// All PMs are web communication
+
+appendMessageToDOM(msg.from, msg.text, msg.time, isSelf, true);
+
+});
+
+}
+
+if (opts.forceBottom || wasAtBottom) {
+
+messagesArea.scrollTop = messagesArea.scrollHeight;
+
+hideScrollBtn();
+
+} else {
+
+// User is reading history above; keep their place and surface the button.
+
+messagesArea.scrollTop = prevScroll;
+
+if (opts.newMessage) flashScrollBtn();
+
+else updateScrollBtn();
+
+}
+
+}
+
+
+function switchTab(target) {
+
+document.querySelectorAll('.tab').forEach(t => {
+
+if (t.getAttribute('data-target') === target) {
+
+t.classList.add('active');
+
+t.classList.remove('unread');
+
+} else {
+
+t.classList.remove('active');
+
+}
+
+});
+
+activeTab = target;
+
+renderMessages({ forceBottom: true });
+
+}
+
+
+function closeTab(event, tabId) {
+
+event.stopPropagation();
+
+const tab = document.querySelector(`.tab[data-target="${tabId}"]`);
+
+if (tab) {
+
+tab.remove();
+
+if (activeTab === tabId) {
+
+switchTab('global');
+
+}
+
+}
+
+}
+
+
+function openPrivateChat(nick) {
+
+const currentNick = nickInput.value.trim();
+
+if (nick === currentNick || nick === '[Server]') return;
+
+
+
+let cleanNick = nick.replace(/ \(Web\)$/, '');
+
+if (cleanNick === currentNick) return;
+
+
+
+const tabId = 'pm-' + cleanNick;
+
+let tab = document.querySelector(`.tab[data-target="${tabId}"]`);
+
+if (!tab) {
+
+tab = document.createElement('div');
+
+tab.className = 'tab';
+
+tab.setAttribute('data-target', tabId);
+
+tab.innerHTML = `${i18n[currentLang].pmWith}${cleanNick} <span class="tab-close" onclick="closeTab(event, '${tabId}')">&times;</span>`;
+
+
+
+tab.addEventListener('click', () => switchTab(tabId));
+
+tabsBar.appendChild(tab);
+
+}
+
+switchTab(tabId);
+
+sidebar.classList.remove('open');
+
+chatsSidebar.classList.remove('open');
+
+}
+
+
+function renderChatsList() {
+
+chatsList.innerHTML = '';
+
+const currentNick = nickInput.value.trim();
+
+const chatPartners = Object.keys(pmMessages);
+
+
+
+if (chatPartners.length === 0) {
+
+const emptyDiv = document.createElement('div');
+
+emptyDiv.style.color = '#777';
+
+emptyDiv.style.textAlign = 'center';
+
+emptyDiv.style.padding = '20px 0';
+
+emptyDiv.style.fontSize = '9px';
+
+emptyDiv.textContent = i18n[currentLang].noChats;
+
+chatsList.appendChild(emptyDiv);
+
+return;
+
+}
+
+
+
+chatPartners.forEach(partner => {
+
+const row = document.createElement('div');
+
+row.className = 'player-row clickable';
+
+row.addEventListener('click', () => {
+
+openPrivateChat(partner);
+
+});
+
+
+
+const img = document.createElement('img');
+
+img.className = 'player-avatar';
+
+img.src = `/avatar/${partner}`;
+
+img.onerror = function() { this.src = `https://minotar.net/helm/${partner}/32`; this.onerror=null; };
+
+img.alt = '';
+
+
+
+const name = document.createElement('span');
+
+name.className = 'player-name';
+
+name.textContent = partner;
+
+
+
+const tabId = 'pm-' + partner;
+
+const tab = document.querySelector(`.tab[data-target="${tabId}"]`);
+
+if (tab && tab.classList.contains('unread')) {
+
+name.style.color = '#ff5555';
+
+name.textContent += ' (*)';
+
+}
+
+
+
+row.appendChild(img);
+
+row.appendChild(name);
+
+chatsList.appendChild(row);
+
+});
+
+}
+
+
+function loadHistory() {
+
+return fetch('/history')
+
+.then(res => res.json())
+
+.then(data => {
+
+globalMessages = data;
+
+if (activeTab === 'global') renderMessages({ forceBottom: true });
+
+})
+
+.catch(err => console.error("Error loading history:", err));
+
+}
+
+
+function loadPrivateHistory() {
+
+const nick = nickInput.value.trim();
+
+if (!nick) return;
+
+fetch('/private/history?user=' + encodeURIComponent(nick))
+
+.then(res => res.json())
+
+.then(data => {
+
+pmMessages = {};
+
+data.forEach(msg => {
+
+const other = (msg.from.toLowerCase() === nick.toLowerCase()) ? msg.to : msg.from;
+
+if (!pmMessages[other]) pmMessages[other] = [];
+
+pmMessages[other].push(msg);
+
+});
+
+if (activeTab !== 'global') renderMessages({ forceBottom: true });
+
+if (chatsSidebar.classList.contains('open')) renderChatsList();
+
+})
+
+.catch(err => console.error("Error loading PM history:", err));
+
+}
+
+
+let eventSource;
+let reconnectTimer;
+function connectSSE() {
+
+if (eventSource) {
+
+eventSource.close();
+
+eventSource = null;
+
+}
+
+if (reconnectTimer) {
+
+clearTimeout(reconnectTimer);
+
+reconnectTimer = null;
+
+}
+
+
+
+statusPanel.className = 'status connecting';
+
+statusText.textContent = i18n[currentLang].connecting;
+
+
+
+const nick = nickInput.value.trim();
+
+eventSource = new EventSource('/stream?nick=' + encodeURIComponent(nick));
+
+
+
+eventSource.onopen = () => {
+
+statusPanel.className = 'status';
+
+statusText.textContent = i18n[currentLang].connected;
+
+};
+
+
+
+eventSource.onerror = (e) => {
+
+console.error('SSE error', e);
+
+statusPanel.className = 'status connecting';
+
+statusText.textContent = i18n[currentLang].errorStatus;
+
+if (eventSource) {
+
+eventSource.close();
+
+eventSource = null;
+
+}
+
+if (!reconnectTimer) {
+
+reconnectTimer = setTimeout(() => {
+
+reconnectTimer = null;
+
+connectSSE();
+
+}, 3000);
+
+}
+
+};
+
+
+
+eventSource.onmessage = (event) => {
+
+try {
+
+const data = JSON.parse(event.data);
+
+const currentNick = nickInput.value.trim();
+
+
+
+if (data.type === 'private') {
+
+if (data.from.toLowerCase() === currentNick.toLowerCase() || data.to.toLowerCase() === currentNick.toLowerCase()) {
+
+const other = (data.from.toLowerCase() === currentNick.toLowerCase()) ? data.to : data.from;
+
+if (!pmMessages[other]) pmMessages[other] = [];
+
+pmMessages[other].push(data);
+
+if (data.from && data.from.toLowerCase() !== currentNick.toLowerCase()) {
+    playNotificationSound();
+}
+
+const otherTabId = 'pm-' + other;
+
+if (activeTab === otherTabId) {
+
+renderMessages({ newMessage: true });
+
+} else {
+
+let tab = document.querySelector(`.tab[data-target="${otherTabId}"]`);
+
+if (!tab) {
+
+tab = document.createElement('div');
+
+tab.className = 'tab unread';
+
+tab.setAttribute('data-target', otherTabId);
+
+tab.innerHTML = `${i18n[currentLang].pmWith}${other} <span class="tab-close" onclick="closeTab(event, '${otherTabId}')">&times;</span>`;
+
+tab.addEventListener('click', () => switchTab(otherTabId));
+
+tabsBar.appendChild(tab);
+
+} else {
+
+tab.classList.add('unread');
+
+}
+
+}
+
+
+
+if (chatsSidebar.classList.contains('open')) {
+
+renderChatsList();
+
+}
+
+}
+
+} else {
+
+globalMessages.push(data);
+
+if (globalMessages.length > 150) globalMessages.shift();
+
+if (data.sender && data.sender !== '[Server]' && data.sender.toLowerCase() !== currentNick.toLowerCase()) {
+    playNotificationSound();
+}
+
+if (activeTab === 'global') {
+
+renderMessages({ newMessage: true });
+
+} else {
+
+document.querySelector('.tab[data-target="global"]').classList.add('unread');
+
+}
+
+
+
+if (data.sender === '[Server]' && (data.text.includes('joined') || data.text.includes('left'))) {
+
+loadServerInfo();
+
+loadPlayers();
+
+}
+
+}
+
+} catch (e) {
+
+console.error("Error parsing message", e);
+
+}
+
+};
+
+}
+
+
+function loadServerInfo() {
+
+fetch('/server-info')
+
+.then(res => res.json())
+
+.then(data => {
+
+serverName.innerHTML = parseMinecraftColors(data.motd);
+
+updateToggleSidebarBtnText(data.online, data.max);
+
+if (data.hasOwnProperty('clickerEnabled')) {
+
+openClickerBtn.style.display = data.clickerEnabled ? 'block' : 'none';
+
+}
+
+if (data.hasOwnProperty('allowImageUploads')) {
+
+attachBtn.style.display = data.allowImageUploads ? 'block' : 'none';
+
+}
+
+})
+
+.catch(err => console.error("Error loading server info", err));
+
+
+
+srvIcon.src = '/server-icon.png?t=' + Date.now();
+
+srvIcon.onerror = () => srvIcon.style.display = 'none';
+
+}
+
+
+function loadPlayers() {
+
+fetch('/players')
+
+.then(res => res.json())
+
+.then(data => {
+
+playerList.innerHTML = '';
+
+if (data.length === 0) {
+
+const emptyDiv = document.createElement('div');
+
+emptyDiv.style.color = '#777';
+
+emptyDiv.style.textAlign = 'center';
+
+emptyDiv.style.padding = '20px 0';
+
+emptyDiv.style.fontSize = '10px';
+
+emptyDiv.textContent = i18n[currentLang].noPlayers;
+
+playerList.appendChild(emptyDiv);
+
+return;
+
+}
+
+data.forEach(p => {
+
+const row = document.createElement('div');
+
+if (p.isWeb) {
+
+row.className = 'player-row clickable';
+
+row.addEventListener('click', () => openPrivateChat(p.name));
+
+} else {
+
+row.className = 'player-row';
+
+}
+
+
+
+const img = document.createElement('img');
+
+img.className = 'player-avatar';
+
+if (p.isWeb) {
+
+img.src = `/avatar/${p.name}`;
+
+img.onerror = function() { this.src = 'data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%23888888%22><path d=%22M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z%22/></svg>'; this.onerror=null; };
+
+} else {
+
+img.src = `https://minotar.net/helm/${p.name}/32`;
+
+}
+
+img.alt = '';
+
+
+
+const name = document.createElement('span');
+
+name.className = 'player-name';
+
+name.textContent = p.name + (p.isWeb ? ' (Web)' : '');
+
+
+
+row.appendChild(img);
+
+row.appendChild(name);
+
+playerList.appendChild(row);
+
+});
+
+})
+
+.catch(err => console.error("Error loading players list", err));
+
+}
+
+
+
+        // ===== Authentication gate =====
+        let appStarted = false;
+        function initApp() {
+            if (appStarted) return;
+            appStarted = true;
+            loadServerInfo();
+            loadPlayers();
+            loadMyAvatar();
+            loadClickerStatus();
+            loadHistory().then(() => {
+                loadPrivateHistory();
+                connectSSE();
+            });
+        }
+
+        function setAccount(nick) {
+            nickInput.value = nick;
+            localStorage.setItem('mc_chat_nick', nick);
+            document.getElementById('auth-overlay').style.display = 'none';
+            initApp();
+        }
+
+        const authOverlay = document.getElementById('auth-overlay');
+        const authForm = document.getElementById('auth-form');
+        const authNick = document.getElementById('auth-nick');
+        const authPassword = document.getElementById('auth-password');
+        const authPassword2 = document.getElementById('auth-password2');
+        const authError = document.getElementById('auth-error');
+        const authSubmit = document.getElementById('auth-submit');
+        const authTabLogin = document.getElementById('auth-tab-login');
+        const authTabRegister = document.getElementById('auth-tab-register');
+        let authMode = 'login';
+
+        function setAuthMode(mode) {
+            authMode = mode;
+            authError.textContent = '';
+            authTabLogin.classList.toggle('active', mode === 'login');
+            authTabRegister.classList.toggle('active', mode === 'register');
+            authPassword2.style.display = (mode === 'register') ? 'block' : 'none';
+            const t = i18n[currentLang];
+            document.getElementById('auth-title').textContent = (mode === 'login') ? t.logIn : t.register;
+            authSubmit.textContent = (mode === 'login') ? t.logIn : t.register;
+            authTabLogin.textContent = t.logIn;
+            authTabRegister.textContent = t.register;
+            authNick.placeholder = i18n[currentLang].nickname;
+            authPassword.placeholder = t.passwordPh;
+            authPassword2.placeholder = t.confirmPh;
+            document.getElementById('auth-hint').textContent = (mode === 'register') ? t.authNickHint : '';
+        }
+        authTabLogin.addEventListener('click', () => setAuthMode('login'));
+        authTabRegister.addEventListener('click', () => setAuthMode('register'));
+
+        authForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            authError.textContent = '';
+            const nick = authNick.value.trim();
+            const password = authPassword.value;
+            if (authMode === 'register' && password !== authPassword2.value) {
+                authError.textContent = i18n[currentLang].passwordsMismatch;
+                return;
+            }
+            const url = (authMode === 'login') ? '/auth/login' : '/auth/register';
+            const params = new URLSearchParams();
+            params.append('nick', nick);
+            params.append('password', password);
+            authSubmit.disabled = true;
+            fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params })
+                .then(res => res.json().then(d => ({ ok: res.ok, d })))
+                .then(({ ok, d }) => {
+                    if (ok && d.status === 'ok') {
+                        authPassword.value = '';
+                        authPassword2.value = '';
+                        setAccount(d.nick);
+                    } else {
+                        authError.textContent = d.message || 'Error';
+                    }
+                })
+                .catch(() => { authError.textContent = 'Network error'; })
+                .finally(() => { authSubmit.disabled = false; });
+        });
+
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            fetch('/auth/logout', { method: 'POST' }).finally(() => location.reload());
+        });
+
+        // Decide on load: valid session -> start app, otherwise show the login overlay.
+        fetch('/auth/me')
+            .then(res => res.json().then(d => ({ ok: res.ok, d })))
+            .then(({ ok, d }) => {
+                if (ok && d.status === 'ok') {
+                    setAccount(d.nick);
+                } else {
+                    setAuthMode('login');
+                    authOverlay.style.display = 'flex';
+                    authNick.focus();
+                }
+            })
+            .catch(() => {
+                setAuthMode('login');
+                authOverlay.style.display = 'flex';
+            });
+
+        openClickerBtn.addEventListener('click', () => {
+            loadClickerStatus();
+            clickerModal.classList.add('open');
+            if (activeClickerTab === 'furnace') {
+                startFurnacePolling();
+            }
+        });
+        closeClickerBtn.addEventListener('click', () => {
+            clickerModal.classList.remove('open');
+            stopFurnacePolling();
+        });
+        clickerBlock.addEventListener('click', clickBlock);
+        transferSendBtn.addEventListener('click', transferOre);
+        transferMaxBtn.addEventListener('click', () => { if (selectedOreSlot) transferAmountInput.value = clickerInventory[selectedOreSlot] || 1; });
+
+        setInterval(() => {
+            loadServerInfo();
+            loadPlayers();
+        }, 15000);
+
+        chatForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const text = msgInput.value.trim();
+            if (!text) return;
+            msgInput.value = '';
+            sendMessage(text);
+        });
+
+        // --- Emoji picker ---
+        emojiBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const hidden = (emojiPicker.style.display === 'none' || emojiPicker.style.display === '');
+            emojiPicker.style.display = hidden ? 'grid' : 'none';
+        });
+
+        emojiPicker.querySelectorAll('span').forEach(span => {
+            span.addEventListener('click', () => {
+                const emoji = span.textContent;
+                const start = (typeof msgInput.selectionStart === 'number') ? msgInput.selectionStart : msgInput.value.length;
+                const end = (typeof msgInput.selectionEnd === 'number') ? msgInput.selectionEnd : msgInput.value.length;
+                msgInput.value = msgInput.value.slice(0, start) + emoji + msgInput.value.slice(end);
+                const pos = start + emoji.length;
+                msgInput.focus();
+                try { msgInput.setSelectionRange(pos, pos); } catch (err) {}
+                emojiPicker.style.display = 'none';
+            });
+        });
+
+        // Close the emoji picker when clicking elsewhere
+        document.addEventListener('click', (e) => {
+            if (emojiPicker.style.display !== 'none' && !emojiPicker.contains(e.target) && e.target !== emojiBtn) {
+                emojiPicker.style.display = 'none';
+            }
+        });
+
+        // --- Image / GIF upload ---
+        attachBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const nick = nickInput.value.trim();
+            if (!nick) { alert(i18n[currentLang].enterNick); return; }
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+            const nick = nickInput.value.trim();
+            if (!nick) { alert(i18n[currentLang].enterNick); fileInput.value = ''; return; }
+
+            const sendBtnEl = document.getElementById('send-btn');
+            const prevLabel = sendBtnEl ? sendBtnEl.textContent : '';
+            if (sendBtnEl) { sendBtnEl.textContent = i18n[currentLang].sending; sendBtnEl.disabled = true; }
+
+            fetch('/upload?name=' + encodeURIComponent(file.name), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/octet-stream' },
+                body: file
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.url) {
+                    sendMessage('[img]' + data.url + '[/img]');
+                } else {
+                    alert((data && data.error) ? data.error : i18n[currentLang].errorUploading);
+                }
+            })
+            .catch(err => {
+                console.error('Upload error', err);
+                alert(i18n[currentLang].errorUploading);
+            })
+            .finally(() => {
+                fileInput.value = '';
+                if (sendBtnEl) { sendBtnEl.textContent = prevLabel; sendBtnEl.disabled = false; }
+            });
+        });
+
+        // The global chat tab is static markup, so wire its click handler too
+        // (PM tabs get theirs on creation). Without this you could not switch
+        // back to global chat without closing the private conversation.
+        document.getElementById('tab-global').addEventListener('click', () => switchTab('global'));
+
+        // Apply the saved/default language once at startup so static labels
+        // (e.g. the furnace tab) are localized without waiting for a manual switch.
+        updateLanguageUI();
+    </script>
+</body>
+</html>
